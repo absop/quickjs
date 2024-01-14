@@ -113,11 +113,13 @@ import * as os from "os";
     if (config_numcalc)
         ps1 = "> ";
     else
-        ps1 = "qjs > ";
-    var ps2 = "  ... ";
+        ps1 = "qjs> ";
+    var ps2 = " ... ";
     var utf8 = true;
     var show_time = false;
     var show_colors = true;
+    var show_brackets = false;
+    var auto_indent = false;
     var eval_start_time;
     var eval_time = 0;
 
@@ -345,6 +347,9 @@ import * as os from "os";
     }
 
     function abort() {
+        mexpr = "";
+        pstate = "";
+        level = 0;
         cmd = "";
         cursor_pos = 0;
         return -2;
@@ -407,18 +412,15 @@ import * as os from "os";
         return -1;
     }
 
-    function history_add(str) {
-        if (str) {
-            history.push(str);
+    function history_add(cmd) {
+        if (cmd && history[history.length - 1] !== cmd) {
+            history.push(cmd);
         }
         history_index = history.length;
     }
 
     function previous_history() {
         if (history_index > 0) {
-            if (history_index == history.length) {
-                history.push(cmd);
-            }
             history_index--;
             cmd = history[history_index];
             cursor_pos = cmd.length;
@@ -430,6 +432,9 @@ import * as os from "os";
             history_index++;
             cmd = history[history_index];
             cursor_pos = cmd.length;
+        } else {
+            cmd = "";
+            cursor_pos = 0;
         }
     }
 
@@ -568,12 +573,19 @@ import * as os from "os";
         insert(clip_board);
     }
 
+    var last_control_c_is_cancel;
+
     function control_c() {
-        if (last_fun === control_c) {
+        if (last_fun === control_c && !last_control_c_is_cancel) {
             std.puts("\n");
             std.exit(0);
+        } else if (cmd || mexpr) {
+            std.puts("\nInputCancelled\n");
+            last_control_c_is_cancel = true;
+            return abort();
         } else {
             std.puts("\n(Press Ctrl-C again to quit)\n");
+            last_control_c_is_cancel = false;
             readline_print_prompt();
         }
     }
@@ -616,10 +628,7 @@ import * as os from "os";
                     obj = get_context_object(line, pos - base.length);
                     if (obj === null || obj === void 0)
                         return obj;
-                    if (obj === g && obj[base] === void 0)
-                        return eval(base);
-                    else
-                        return obj[base];
+                    return obj[base];
                 }
                 return {};
             }
@@ -773,6 +782,7 @@ import * as os from "os";
         "\x1b[F":   end_of_line,            /* ^[[F - end */
         "\x1b[H":   beginning_of_line,      /* ^[[H - home */
         "\x1b\x7f": backward_kill_word,     /* M-C-? - backward_kill_word */
+        "\x1b\x08": backward_kill_word,     /* M-C-? - backward_kill_word */
         "\x1bb":    backward_word,          /* M-b - backward_word */
         "\x1bd":    kill_word,              /* M-d - kill_word */
         "\x1bf":    forward_word,           /* M-f - backward_word */
@@ -808,7 +818,11 @@ import * as os from "os";
         history_index = history.length;
         readline_cb = cb;
 
-        prompt = pstate;
+        if (show_brackets && pstate) {
+            prompt = pstate[pstate.length - 1];
+        } else {
+            prompt = "";
+        }
 
         if (mexpr) {
             prompt += dupstr(" ", plen - prompt.length);
@@ -817,6 +831,9 @@ import * as os from "os";
             if (show_time) {
                 var t = eval_time / 1000;
                 prompt += t.toFixed(6) + " ";
+            }
+            if (show_brackets) {
+                prompt += '|';
             }
             plen = prompt.length;
             prompt += ps1;
@@ -1077,7 +1094,7 @@ import * as os from "os";
 
     function extract_directive(a) {
         var pos;
-        if (a[0] !== '\\')
+        if (a[0] !== ':')
             return "";
         for (pos = 1; pos < a.length; pos++) {
             if (!is_alpha(a[pos]))
@@ -1102,6 +1119,10 @@ import * as os from "os";
             hex_mode = true;
         } else if (cmd === "d") {
             hex_mode = false;
+        } else if (cmd === "i") {
+            auto_indent = !auto_indent;
+        } else if (cmd === "b") {
+            show_brackets = !show_brackets;
         } else if (cmd === "t") {
             show_time = !show_time;
         } else if (has_bignum && cmd === "p") {
@@ -1204,33 +1225,36 @@ import * as os from "os";
         function sel(n) {
             return n ? "*": " ";
         }
-        std.puts("\\h          this help\n" +
-                 "\\x         " + sel(hex_mode) + "hexadecimal number display\n" +
-                 "\\d         " + sel(!hex_mode) + "decimal number display\n" +
-                 "\\t         " + sel(show_time) + "toggle timing display\n" +
-                  "\\clear      clear the terminal\n");
+        std.puts(
+            ":h          this help\n" +
+            ":x         " + sel(hex_mode) + "hexadecimal number display\n" +
+            ":d         " + sel(!hex_mode) + "decimal number display\n" +
+            ":b         " + sel(show_brackets) + "prompt brackets display\n" +
+            ":t         " + sel(show_time) + "toggle timing display\n" +
+            ":i         " + sel(auto_indent) + "toggle auto indent\n" +
+            ":clear      clear the terminal\n");
         if (has_jscalc) {
-            std.puts("\\a         " + sel(algebraicMode) + "algebraic mode\n" +
-                     "\\n         " + sel(!algebraicMode) + "numeric mode\n");
+            std.puts(":a         " + sel(algebraicMode) + "algebraic mode\n" +
+                     ":n         " + sel(!algebraicMode) + "numeric mode\n");
         }
         if (has_bignum) {
-            std.puts("\\p [m [e]]  set the BigFloat precision to 'm' bits\n" +
-                     "\\digits n   set the BigFloat precision to 'ceil(n*log2(10))' bits\n");
+            std.puts(":p [m [e]]  set the BigFloat precision to 'm' bits\n" +
+                     ":digits n   set the BigFloat precision to 'ceil(n*log2(10))' bits\n");
             if (!has_jscalc) {
-                std.puts("\\mode [std|math] change the running mode (current = " + eval_mode + ")\n");
+                std.puts(":mode [std|math] change the running mode (current = " + eval_mode + ")\n");
             }
         }
         if (!config_numcalc) {
-            std.puts("\\q          exit\n");
+            std.puts(":q          exit\n");
         }
     }
 
     function cmd_start() {
         if (!config_numcalc) {
             if (has_jscalc)
-                std.puts('QJSCalc - Type "\\h" for help\n');
+                std.puts('QJSCalc - Type "?" for help\n');
             else
-                std.puts('QuickJS - Type "\\h" for help\n');
+                std.puts('QuickJS - Type "?" for help\n');
         }
         if (has_bignum) {
             log2_10 = Math.log(10) / Math.log(2);
@@ -1247,7 +1271,11 @@ import * as os from "os";
     }
 
     function cmd_readline_start() {
-        readline_start(dupstr("    ", level), readline_handle_cmd);
+        if (auto_indent) {
+            readline_start(dupstr("    ", level), readline_handle_cmd);
+        } else {
+            readline_start("", readline_handle_cmd);
+        }
     }
 
     function readline_handle_cmd(expr) {
@@ -1294,7 +1322,7 @@ import * as os from "os";
             BigFloatEnv.setPrec(eval_and_print_start.bind(null, expr, false),
                                 prec, expBits);
         } else {
-            eval_and_print_start(expr, true);
+            eval_and_print_start(expr, false);
         }
         return true;
     }
@@ -1565,6 +1593,8 @@ import * as os from "os";
                     continue;
                 }
                 style = 'error';
+                state = "";
+                level = "";
                 break;
             default:
                 if (is_digit(c)) {
