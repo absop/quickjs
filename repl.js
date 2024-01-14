@@ -58,6 +58,7 @@ import * as os from "os";
         white:   "\x1b[37m",
         gray:    "\x1b[30;1m",
         grey:    "\x1b[30;1m",
+        pink:    "\x1b[38;5;199m",
         bright_red:     "\x1b[31;1m",
         bright_green:   "\x1b[32;1m",
         bright_yellow:  "\x1b[33;1m",
@@ -85,13 +86,15 @@ import * as os from "os";
         };
     } else {
         styles = {
-            'default':    'bright_green',
-            'comment':    'white',
+            'default':    'white',
+            'comment':    'gray',
             'string':     'bright_cyan',
             'regex':      'cyan',
-            'number':     'green',
-            'keyword':    'bright_white',
-            'function':   'bright_yellow',
+            'number':     'yellow',
+            'constant':   'yellow',
+            'operator':   'pink',
+            'keyword':    'magenta',
+            'function':   'cyan',
             'type':       'bright_magenta',
             'identifier': 'bright_green',
             'error':      'red',
@@ -1484,18 +1487,28 @@ import * as os from "os";
         }
 
         var js_keywords = "|" +
-            "break|case|catch|continue|debugger|default|delete|do|" +
-            "else|finally|for|function|if|in|instanceof|new|" +
-            "return|switch|this|throw|try|typeof|while|with|" +
-            "class|const|enum|import|export|extends|super|" +
-            "implements|interface|let|package|private|protected|" +
-            "public|static|yield|" +
-            "undefined|null|true|false|Infinity|NaN|" +
-            "eval|arguments|" +
+            "break|case|catch|continue|debugger|default|do|" +
+            "else|finally|for|function|if|" +
+            "return|switch|throw|try|while|with|" +
+            "import|export|package|" +
+            "implements|interface|extends|class|" +
+            "yield|" +
+            "eval|" +
             "await|";
 
-        var js_no_regex = "|this|super|undefined|null|true|false|Infinity|NaN|arguments|";
-        var js_types = "|void|var|";
+        var js_operators = "|" +
+            "new|delete|" +
+            "in|instanceof|" +
+            "typeof|";
+
+        var js_constants = "|" +
+            "undefined|null|true|false|Infinity|NaN|" +
+            "this|super|arguments|";
+
+        var js_types = "|" +
+            "void|var|let|" +
+            "const|enum|" +
+            "private|protected|public|static|";
 
         function parse_identifier() {
             can_regex = 1;
@@ -1505,10 +1518,19 @@ import * as os from "os";
 
             var w = '|' + str.substring(start, i) + '|';
 
+            if (js_constants.indexOf(w) >= 0) {
+                can_regex = 0;
+                style = 'constant';
+                return;
+            }
+
+            if (js_operators.indexOf(w) >= 0) {
+                style = 'operator';
+                return;
+            }
+
             if (js_keywords.indexOf(w) >= 0) {
                 style = 'keyword';
-                if (js_no_regex.indexOf(w) >= 0)
-                    can_regex = 0;
                 return;
             }
 
