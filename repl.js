@@ -123,6 +123,7 @@ import * as os from "os";
     var show_colors = true;
     var show_brackets = false;
     var auto_indent = false;
+    var async_eval = false;
     var eval_start_time;
     var eval_time = 0;
 
@@ -1128,6 +1129,8 @@ import * as os from "os";
             show_brackets = !show_brackets;
         } else if (cmd === "t") {
             show_time = !show_time;
+        } else if (cmd === "async") {
+            async_eval = !async_eval;
         } else if (has_bignum && cmd === "p") {
             param = expr.substring(cmd.length + 1).trim().split(" ");
             if (param.length === 1 && param[0] === "") {
@@ -1235,6 +1238,7 @@ import * as os from "os";
             :b         ${sel(show_brackets)}toggle prompt brackets display
             :t         ${sel(show_time)}toggle timing display
             :i         ${sel(auto_indent)}toggle auto indent
+            :async     ${sel(async_eval)}toggle async eval mode
             :clear      clear the terminal
             `;
         if (has_jscalc) {
@@ -1337,7 +1341,7 @@ import * as os from "os";
             BigFloatEnv.setPrec(eval_and_print_start.bind(null, expr, false),
                                 prec, expBits);
         } else {
-            eval_and_print_start(expr, false);
+            eval_and_print_start(expr, async_eval);
         }
         return true;
     }
