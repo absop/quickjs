@@ -1228,28 +1228,40 @@ import * as os from "os";
         function sel(n) {
             return n ? "*": " ";
         }
-        std.puts(
-            ":h          this help\n" +
-            ":x         " + sel(hex_mode) + "hexadecimal number display\n" +
-            ":d         " + sel(!hex_mode) + "decimal number display\n" +
-            ":b         " + sel(show_brackets) + "prompt brackets display\n" +
-            ":t         " + sel(show_time) + "toggle timing display\n" +
-            ":i         " + sel(auto_indent) + "toggle auto indent\n" +
-            ":clear      clear the terminal\n");
+        var help_text = `\
+            :h          this help
+            :x         ${sel(hex_mode)}hexadecimal number display
+            :d         ${sel(!hex_mode)}decimal number display
+            :b         ${sel(show_brackets)}toggle prompt brackets display
+            :t         ${sel(show_time)}toggle timing display
+            :i         ${sel(auto_indent)}toggle auto indent
+            :clear      clear the terminal
+            `;
         if (has_jscalc) {
-            std.puts(":a         " + sel(algebraicMode) + "algebraic mode\n" +
-                     ":n         " + sel(!algebraicMode) + "numeric mode\n");
+            help_text += `\
+            :a         ${sel(algebraicMode)}algebraic mode
+            :n         ${sel(!algebraicMode)}numeric mode
+            `;
         }
         if (has_bignum) {
-            std.puts(":p [m [e]]  set the BigFloat precision to 'm' bits\n" +
-                     ":digits n   set the BigFloat precision to 'ceil(n*log2(10))' bits\n");
+            help_text += `\
+            :p [m [e]]  set the BigFloat precision to 'm' bits
+            :digits n   set the BigFloat precision to 'ceil(n*log2(10))' bits
+            `;
             if (!has_jscalc) {
-                std.puts(":mode [std|math] change the running mode (current = " + eval_mode + ")\n");
+                help_text += `\
+                :mode [std|math] change the running mode (current = ${eval_mode})
+                `;
             }
         }
+
         if (!config_numcalc) {
-            std.puts(":q          exit\n");
+            help_text += `\
+            :q          exit
+            `;
         }
+        help_text = help_text.replace(/^(\s+)/gm, '');
+        std.puts(help_text);
     }
 
     function cmd_start() {
